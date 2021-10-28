@@ -5,14 +5,14 @@ from statsmodels.stats.power import TTestIndPower
 
 
 def pooledStdev(g1: np.array, g2: np.array) -> float:
-    "Calculates pooled standard deviation (Cohen's D) for two groups."
+    "Calculates pooled standard deviation for two groups."
     # Getting each group's size.
-    n1, n2 = len(g1), len(g2)
-    # Getting each group's variance.
-    s1, s2 = g1.var(), g2.var()
+    n1, n2 = g1.size, g2.size
+    # Getting each group's standard deviation.
+    sd1, sd2 = g1.std(), g2.std()
     # Calculating pooled standard deviation.
     s = sqrt(
-        (((n1 - 1) * s1) + ((n2 - 1) * s2))
+        (((n1 - 1) * (sd1**2)) + ((n2 - 1) * (sd2**2)))
         /
         (n1 + n2 - 2)
     )
@@ -23,10 +23,10 @@ def effectSize(g1: np.array, g2: np.array) -> float:
     "Calculates effect size for two groups."
     # Calculating pooled standard deviation.
     s = pooledStdev(g1, g2)
-    u1, u2 = g1.mean(), g2.mean()
+    m1, m2 = g1.mean(), g2.mean()
     # Calculating Cohen's D.
-    d = (u1 - u2) / s
-    return d
+    d = (m1 - m2) / s
+    return abs(d)
 
 
 def TTestInd_sampleSize(
@@ -41,25 +41,23 @@ def TTestInd_sampleSize(
     Computes the desired N for an Independent Samples T-Test,
     given alpha, power, and data for both samples.
     """
-    # Absolute value of effect size is taken as instructed here:
-    # https://www.statsmodels.org/stable/generated/statsmodels.stats.power.TTestIndPower.solve_power.html
-    d = abs(effectSize(g1, g2))
-    # We get the ratio of group1 and group2 size.
-    ratio = len(g1) / len(g2)
+    d = effectSize(g1, g2)
+    # We get the ratio of group2 to group1
+    ratio = g2.size / g1.size
     # Solving independent T-Test sample size for given
     # effect size, alpha, power, and group size ratio.
     nobs1 = TTestIndPower().solve_power(
-        nobs1=None,
+        nobs1=None,  # marked as None because we want this value
         effect_size=d,
         alpha=alpha,
         power=power,
         ratio=ratio,
         alternative=alternative
-    )  # output is nobs1
-    nobs2 = nobs1 * ratio
-    N = nobs1 + nobs2  # getting number of subjects needed
+    )  # output is number of observations needed in group 1
+    nobs2 = nobs1 * ratio  # to get number of observations needed in group 2 we multiply by the ratio
+    N = nobs1 + nobs2  # getting number of subjects needed in total
     if doround:
         # Rounding up to a whole participant.
-        return ceil(N)
+        return ceil(N)  # needed because multiplying by decimal to get nobs2
     else:
         return N
